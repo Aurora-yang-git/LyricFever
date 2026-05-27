@@ -30,6 +30,10 @@ struct OnboardingWindow: View {
                  .tabItem {
                      Label("Keyboard Shortcuts", systemImage: "keyboard")
                  }
+            NetEaseCookieSettingsView()
+                .tabItem {
+                    Label("NetEase 中国", systemImage: "music.note")
+                }
         }
     }
 }

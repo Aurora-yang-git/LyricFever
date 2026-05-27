@@ -267,7 +267,7 @@ import MediaRemoteAdapter
     
     var spotifyLyricProvider = SpotifyLyricProvider()
     var lRCLyricProvider = LRCLIBLyricProvider()
-    var netEaseLyricProvider = NetEaseLyricProvider()
+    var netEaseLyricProvider: any LyricProvider = NetEaseDirectLyricProvider()
     #if os(macOS)
     var localFileUploadProvider = LocalFileUploadProvider()
     #endif
