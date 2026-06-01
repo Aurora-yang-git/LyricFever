@@ -105,12 +105,10 @@ class NetEaseLyricProvider: LyricProvider {
 
         let searchResult = try await doSearch(keywords: "\(trackName) \(artist)", limit: 5)
 
-        let candidate = searchResult.result.songs.first(where: { song in
+        guard let song = searchResult.result.songs.first(where: { song in
             normalize(song.name) == normalize(trackName) &&
             artistMatches(song.artists.first?.name ?? "", artist)
-        }) ?? searchResult.result.songs.first
-
-        guard let song = candidate else {
+        }) else {
             return NetworkFetchReturn(lyrics: [], colorData: nil)
         }
 

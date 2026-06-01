@@ -375,14 +375,33 @@ import MediaRemoteAdapter
         guard let currentlyPlaying, let currentlyPlayingName else {
             return NetworkFetchReturn(lyrics: [], colorData: nil)
         }
-        for networkLyricProvider in allNetworkLyricProviders {
+
+        // When NetEase translation is enabled, try NetEase first with strict matching.
+        // If it finds a match it returns lyrics + translation immediately.
+        // If nothing matches, fall through to Spotify/LRCLIB without retrying NetEase.
+        var providers = allNetworkLyricProviders
+        if userDefaultStorage.netEaseTranslationEnabled {
+            if let result = try? await netEaseLyricProvider.fetchNetworkLyrics(
+                trackName: currentlyPlayingName, trackID: currentlyPlaying,
+                currentlyPlayingArtist: currentlyPlayingArtist, currentAlbumName: currentAlbumName
+            ), !result.lyrics.isEmpty {
+                amplitude.track(eventType: "\(netEaseLyricProvider.providerName) Fetch")
+                print("FetchAllNetworkLyrics: returning lyrics from \(netEaseLyricProvider.providerName)")
+                let _ = SongObject(from: result.lyrics, with: coreDataContainer.viewContext, trackID: currentlyPlaying, trackName: currentlyPlayingName)
+                saveCoreData()
+                return result
+            }
+            // No match — skip NetEase in the fallback loop since it already returned empty.
+            providers = providers.filter { !($0 is NetEaseLyricProvider) }
+        }
+
+        for networkLyricProvider in providers {
             do {
                 print("FetchAllNetworkLyrics: fetching from \(networkLyricProvider.providerName)")
                 let lyrics = try await networkLyricProvider.fetchNetworkLyrics(trackName: currentlyPlayingName, trackID: currentlyPlaying, currentlyPlayingArtist: currentlyPlayingArtist, currentAlbumName: currentAlbumName)
                 if !lyrics.lyrics.isEmpty {
                     amplitude.track(eventType: "\(networkLyricProvider.providerName) Fetch")
                     print("FetchAllNetworkLyrics: returning lyrics from \(networkLyricProvider.providerName)")
-                    // thats how i save to coredata
                     let _ = SongObject(from: lyrics.lyrics, with: coreDataContainer.viewContext, trackID: currentlyPlaying, trackName: currentlyPlayingName)
                     saveCoreData()
                     return lyrics
@@ -971,8 +990,6 @@ import MediaRemoteAdapter
                 callColorDataServiceOnLyricColorOrArtwork(colorData: networkLyrics.colorData)
                 if !networkLyrics.translation.isEmpty && userDefaultStorage.netEaseTranslationEnabled {
                     translatedLyric = networkLyrics.translation
-                } else if userDefaultStorage.netEaseTranslationEnabled {
-                    Task { await fetchNetEaseTranslation(for: initiatingTrackID) }
                 }
             } else {
                 print("FetchLyrics: Skipping color save due to stale track (initiated: \(initiatingTrackID), current: \(self.currentlyPlaying ?? "nil")).")
