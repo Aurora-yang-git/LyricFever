@@ -58,12 +58,28 @@ class NetEaseLyricProvider: LyricProvider {
         }
     }
 
-    // Passes if either string contains the other (case-insensitive).
-    private func stringsMatch(_ a: String, _ b: String) -> Bool {
-        let a = a.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        let b = b.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !a.isEmpty, !b.isEmpty else { return true }
-        return a.contains(b) || b.contains(a)
+    // Strips (…)/[…] annotations then folds case, diacritics, and full-width chars.
+    private func normalize(_ s: String) -> String {
+        var r = s.trimmingCharacters(in: .whitespaces)
+        r = r.replacingOccurrences(of: #"\s*\([^)]*\)"#, with: "", options: .regularExpression)
+        r = r.replacingOccurrences(of: #"\s*\[[^\]]*\]"#, with: "", options: .regularExpression)
+        return r.folding(options: [.diacriticInsensitive, .caseInsensitive, .widthInsensitive], locale: .current)
+            .trimmingCharacters(in: .whitespaces)
+    }
+
+    // Returns true if any component of candidate matches any component of query,
+    // splitting on common multi-artist separators (&, feat., ft., ×).
+    private func artistMatches(_ candidate: String, _ query: String) -> Bool {
+        let cn = normalize(candidate), qn = normalize(query)
+        guard cn != qn else { return true }
+        func parts(_ s: String) -> [String] {
+            s.components(separatedBy: CharacterSet(charactersIn: "&,×"))
+             .flatMap { $0.components(separatedBy: " feat. ") }
+             .flatMap { $0.components(separatedBy: " ft. ") }
+             .map { $0.trimmingCharacters(in: .whitespaces) }
+             .filter { !$0.isEmpty }
+        }
+        return parts(cn).contains { c in parts(qn).contains { c == $0 } }
     }
 
     // Aligns tlyric timestamps to main lyric lines within a 2-second window.
@@ -90,7 +106,8 @@ class NetEaseLyricProvider: LyricProvider {
         let searchResult = try await doSearch(keywords: "\(trackName) \(artist)", limit: 5)
 
         let candidate = searchResult.result.songs.first(where: { song in
-            stringsMatch(song.name, trackName) && stringsMatch(song.artists.first?.name ?? "", artist)
+            normalize(song.name) == normalize(trackName) &&
+            artistMatches(song.artists.first?.name ?? "", artist)
         }) ?? searchResult.result.songs.first
 
         guard let song = candidate else {
