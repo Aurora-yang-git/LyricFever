@@ -132,6 +132,15 @@ struct LyricFever: App {
                     viewmodel.translatedLyric = []
                 }
             }
+            .onChange(of: viewmodel.userDefaultStorage.netEaseTranslationEnabled) {
+                if viewmodel.userDefaultStorage.netEaseTranslationEnabled {
+                    guard let trackID = viewmodel.currentlyPlaying else { return }
+                    Task { await viewmodel.fetchNetEaseTranslation(for: trackID) }
+                } else {
+                    viewmodel.translatedLyric = []
+                    let _ = viewmodel.reloadTranslationConfigIfTranslating()
+                }
+            }
             .onChange(of: viewmodel.currentPlayer) {
                 print("Setting hasOnboarded to false due to player change")
                 viewmodel.userDefaultStorage.hasOnboarded = false

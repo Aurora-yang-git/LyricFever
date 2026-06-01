@@ -9,115 +9,127 @@ import SwiftUI
 import SDWebImageSwiftUI
 
 struct ApiView: View {
+    var isSettingsContext: Bool = false
     @Environment(\.dismiss) var dismiss
     @State private var isShowingDetailView = false
     @AppStorage("spDcCookie") var spDcCookie: String = ""
+    @AppStorage("neteaseMusicU") var musicU: String = ""
+    @AppStorage("neteaseCsrf") var csrf: String = ""
+    @AppStorage("netEaseTranslationEnabled") var netEaseTranslationEnabled: Bool = false
     @State var isLoading = false
     @State var errorMessage: String?
     @StateObject var navigationState = NavigationState()
     @State var loginMethod = true
     @State var loggedIn = false
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            StepView(title: "Please log into Spotify", description: "I download lyrics from Spotify (and use LRCLIB and NetEase as backups)")
-            
-            Picker("", selection: $loginMethod) {
-                Text("Spotify Login").tag(true)
-                Text("API Key: Advanced").tag(false)
-            }
-            .pickerStyle(.segmented)
-            
-            if loginMethod {
-                ZStack {
-                    // Blurred web view
-                    WebView(request: URLRequest(url: URL(string: "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F")!), navigationState: navigationState)
-                        .disabled(loggedIn)
-                        .blur(radius: loggedIn ? 15 : 0)
-                    
-                    if loggedIn {
-                        Rectangle()
-                            .fill(Color.black.opacity(0.5))
-                        
-                        VStack {
-                            Text("You're Logged In 🙂")
-                                .font(.largeTitle)
-                            
-                            // Next button centered on the web view
-                            Button("Next") {
-                                checkForLogin()
-                                // Handle next button action
-                            }
-                            .font(.headline)
-                            .controlSize(.large)
-                            .buttonStyle(.borderedProminent)
-                            Button("Log Out") {
-                                Task {
-                                    loggedIn = false
-                                    ViewModel.shared.userDefaultStorage.cookie = ""
-                                    navigationState.webView.load(URLRequest(url: URL(string: "https://www.spotify.com/logout/")!))
-                                    try await Task.sleep(nanoseconds: 2000000000)
-                                    navigationState.webView.load(URLRequest(url: URL(string: "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F")!))
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                StepView(title: "Please log into Spotify", description: "I download lyrics from Spotify (and use LRCLIB and NetEase as backups)")
+
+                Picker("", selection: $loginMethod) {
+                    Text("Spotify Login").tag(true)
+                    Text("API Key: Advanced").tag(false)
+                }
+                .pickerStyle(.segmented)
+
+                if loginMethod {
+                    ZStack {
+                        WebView(request: URLRequest(url: URL(string: "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F")!), navigationState: navigationState)
+                            .disabled(loggedIn)
+                            .blur(radius: loggedIn ? 15 : 0)
+
+                        if loggedIn {
+                            Rectangle()
+                                .fill(Color.black.opacity(0.5))
+
+                            VStack {
+                                Text("You're Logged In 🙂")
+                                    .font(.largeTitle)
+
+                                if !isSettingsContext {
+                                    Button("Next") {
+                                        checkForLogin()
+                                    }
+                                    .font(.headline)
+                                    .controlSize(.large)
+                                    .buttonStyle(.borderedProminent)
                                 }
+                                Button("Log Out") {
+                                    Task {
+                                        loggedIn = false
+                                        ViewModel.shared.userDefaultStorage.cookie = ""
+                                        navigationState.webView.load(URLRequest(url: URL(string: "https://www.spotify.com/logout/")!))
+                                        try await Task.sleep(nanoseconds: 2000000000)
+                                        navigationState.webView.load(URLRequest(url: URL(string: "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F")!))
+                                    }
+                                }
+                                .font(.headline)
+                                .controlSize(.large)
                             }
-                            .font(.headline)
-                            .controlSize(.large)
                         }
                     }
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 20))
-            } else {
-                HStack {
-                    Spacer()
-                    AnimatedImage(name: "spotifylogin.gif")
-                        .resizable()
-                    Spacer()
-                }
-                
-                TextField("Enter your SP_DC Cookie Here", text: $spDcCookie)
-            }
-            
-            HStack {
-                Button("Back") {
-                    dismiss()
-                }
-                if !loginMethod {
-                    Button("Open Spotify on the Web") {
-                        let url = URL(string: "https://open.spotify.com")!
-                        NSWorkspace.shared.open(url)
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                } else {
+                    HStack {
+                        Spacer()
+                        AnimatedImage(name: "spotifylogin.gif")
+                            .resizable()
+                        Spacer()
                     }
+
+                    TextField("Enter your SP_DC Cookie Here", text: $spDcCookie)
                 }
-                Spacer()
-                NavigationLink(destination: FinalTruncationView(), isActive: $isShowingDetailView) {EmptyView()}
-                    .hidden()
-                if errorMessage != nil, !isLoading {
-                    Text("WRONG SP DC COOKIE TRY AGAIN ⚠️")
-                        .foregroundStyle(.red)
+
+                if netEaseTranslationEnabled {
+                    Divider()
+
+                    StepView(title: "NetEase Music Credentials", description: "Enter your MUSIC_U and __csrf cookies to enable Chinese translation.")
+
+                    TextField("MUSIC_U", text: $musicU)
+                    TextField("__csrf", text: $csrf)
                 }
-                if isLoading {
-                    ProgressView()
-                        .scaleEffect(0.5)
-                        .frame(height: 20)
+
+                if !isSettingsContext {
+                    HStack {
+                        Button("Back") {
+                            dismiss()
+                        }
+                        if !loginMethod {
+                            Button("Open Spotify on the Web") {
+                                let url = URL(string: "https://open.spotify.com")!
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                        Spacer()
+                        NavigationLink(destination: FinalTruncationView(), isActive: $isShowingDetailView) { EmptyView() }
+                            .hidden()
+                        if errorMessage != nil, !isLoading {
+                            Text("WRONG SP DC COOKIE TRY AGAIN ⚠️")
+                                .foregroundStyle(.red)
+                        }
+                        if isLoading {
+                            ProgressView()
+                                .scaleEffect(0.5)
+                                .frame(height: 20)
+                        }
+                        Button("Next") {
+                            checkForLogin()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(isLoading || spDcCookie.count == 0)
+                    }
+                    .padding(.vertical, 15)
                 }
-                Button("Next") {
-                    checkForLogin()
-                    // replace button with spinner
-                    // check if the cookie is legit
-                   // isLoading = false
-                    //isShowingDetailView = true
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(isLoading || spDcCookie.count == 0)
             }
-            .padding(.vertical, 15)
-            
+            .padding(.horizontal, 20)
         }
-        .padding(.horizontal, 20)
         .navigationBarBackButtonHidden(true)
-        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("didLogIn"))) { newValue in
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("didLogIn"))) { _ in
             loggedIn = true
         }
     }
-    
+
     func checkForLogin() {
         Task {
             do {

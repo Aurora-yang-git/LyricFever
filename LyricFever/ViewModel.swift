@@ -24,7 +24,7 @@ import MediaRemoteAdapter
     static let shared = ViewModel()
     
     // Apple Music Tahoe broken AppleScript workaround
-    let musicController = MediaController(bundleIdentifier: "com.apple.Music")
+    let musicController = MediaController()
 //    var appleMusicUniqueIdentifier: String?
 
     var currentlyPlaying: String?
@@ -357,6 +357,19 @@ import MediaRemoteAdapter
         
     }
     
+    @MainActor
+    func fetchNetEaseTranslation(for trackID: String) async {
+        guard let trackName = currentlyPlayingName else { return }
+        let result = try? await netEaseLyricProvider.fetchNetworkLyrics(
+            trackName: trackName,
+            trackID: trackID,
+            currentlyPlayingArtist: currentlyPlayingArtist,
+            currentAlbumName: currentAlbumName
+        )
+        guard let result, trackID == currentlyPlaying, !result.translation.isEmpty else { return }
+        translatedLyric = result.translation
+    }
+
     @MainActor
     func fetchAllNetworkLyrics() async -> NetworkFetchReturn {
         guard let currentlyPlaying, let currentlyPlayingName else {
@@ -930,6 +943,9 @@ import MediaRemoteAdapter
                 print("FetchLyrics: CoreData result stale (initiated: \(initiatingTrackID), current: \(self.currentlyPlaying ?? "nil")). Throwing.")
                 throw FetchError.staleTrack
             }
+            if translatedLyric.isEmpty && userDefaultStorage.netEaseTranslationEnabled {
+                Task { await fetchNetEaseTranslation(for: initiatingTrackID) }
+            }
             return lyrics
         } else {
             print("ViewModel FetchLyrics: no lyrics from core data, going to download from internet \(trackID) \(trackName)")
@@ -953,6 +969,9 @@ import MediaRemoteAdapter
             // verify non-stale trackID
             if initiatingTrackID == self.currentlyPlaying {
                 callColorDataServiceOnLyricColorOrArtwork(colorData: networkLyrics.colorData)
+                if !networkLyrics.translation.isEmpty && userDefaultStorage.netEaseTranslationEnabled {
+                    translatedLyric = networkLyrics.translation
+                }
             } else {
                 print("FetchLyrics: Skipping color save due to stale track (initiated: \(initiatingTrackID), current: \(self.currentlyPlaying ?? "nil")).")
                 throw FetchError.staleTrack
@@ -1015,7 +1034,7 @@ import MediaRemoteAdapter
     
     #if os(macOS)
     func reloadTranslationConfigIfTranslating() -> Bool {
-        if userDefaultStorage.translate {
+        if userDefaultStorage.translate && translatedLyric.isEmpty {
             if translationSessionConfig == TranslationSession.Configuration(source: translationSourceLanguage, target: userLocaleLanguage) {
                 translationSessionConfig?.invalidate()
             } else {

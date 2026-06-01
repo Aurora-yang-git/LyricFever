@@ -69,6 +69,8 @@ class UserDefaultStorage {
     @ObservationIgnored var hasOnboarded: Bool
     @ObservableUserDefault(.init(key: "hasTranslated", defaultValue: false, store: .standard))
     @ObservationIgnored var hasTranslated: Bool
+    @ObservableUserDefault(.init(key: "netEaseTranslationEnabled", defaultValue: false, store: .standard))
+    @ObservationIgnored var netEaseTranslationEnabled: Bool
     @ObservableUserDefault(.init(key: "truncationLength", defaultValue: 40, store: .standard))
     @ObservationIgnored var truncationLength: Int
 }

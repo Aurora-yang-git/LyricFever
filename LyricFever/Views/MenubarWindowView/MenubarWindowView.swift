@@ -17,6 +17,8 @@ struct MenubarWindowView: View {
     @Environment(\.colorScheme) var colorScheme
     @State var currentHoveredItem = MenubarButtonHighlight.none
     @State var supportedLanguages: [Locale.Language] = []
+    @AppStorage("neteaseMusicU") var neteaseMusicU: String = ""
+    @AppStorage("neteaseCsrf") var neteaseCsrf: String = ""
     
     @ViewBuilder
     var profilePicViewHeaderView: some View {
@@ -240,6 +242,19 @@ struct MenubarWindowView: View {
             
             Toggle("Translate To \(viewmodel.userLocaleLanguageString)", isOn: $viewmodel.userDefaultStorage.translate)
             .disabled(!viewmodel.userDefaultStorage.hasOnboarded)
+            Divider()
+        }
+        Section("NetEase Chinese Translation") {
+            Picker("NetEase Chinese Translation", selection: $viewmodel.userDefaultStorage.netEaseTranslationEnabled) {
+                Text("Off").tag(false)
+                Text("Enabled").tag(true)
+            }
+            if viewmodel.userDefaultStorage.netEaseTranslationEnabled && (neteaseMusicU.isEmpty || neteaseCsrf.isEmpty) {
+                Button("Log into NetEase Music") {
+                    NSApplication.shared.activate(ignoringOtherApps: true)
+                    openWindow(id: "onboarding")
+                }
+            }
             Divider()
         }
         let translationSourceLanguagePickerBinding = Binding<String?> (

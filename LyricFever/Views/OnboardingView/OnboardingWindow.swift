@@ -30,6 +30,10 @@ struct OnboardingWindow: View {
                  .tabItem {
                      Label("Keyboard Shortcuts", systemImage: "keyboard")
                  }
+            ApiView(isSettingsContext: true)
+                .tabItem {
+                    Label("Login Settings", systemImage: "person.crop.circle.badge.checkmark")
+                }
         }
     }
 }
