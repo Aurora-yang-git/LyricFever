@@ -971,6 +971,8 @@ import MediaRemoteAdapter
                 callColorDataServiceOnLyricColorOrArtwork(colorData: networkLyrics.colorData)
                 if !networkLyrics.translation.isEmpty && userDefaultStorage.netEaseTranslationEnabled {
                     translatedLyric = networkLyrics.translation
+                } else if userDefaultStorage.netEaseTranslationEnabled {
+                    Task { await fetchNetEaseTranslation(for: initiatingTrackID) }
                 }
             } else {
                 print("FetchLyrics: Skipping color save due to stale track (initiated: \(initiatingTrackID), current: \(self.currentlyPlaying ?? "nil")).")
